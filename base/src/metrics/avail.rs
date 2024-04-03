@@ -138,7 +138,7 @@ impl HeaderExtensionBuilderMetrics {
 		}
 	}
 
-	pub fn observe_evaluation_grid_build_time(duration: Duration) {
+	pub(crate) fn observe_evaluation_grid_build_time(duration: Duration) {
 		if let Some(metrics) = AVAIL_METRICS.get() {
 			metrics
 				.header_extension
@@ -147,7 +147,7 @@ impl HeaderExtensionBuilderMetrics {
 		}
 	}
 
-	pub fn observe_commitment_build_time(duration: Duration) {
+	pub(crate) fn observe_commitment_build_time(duration: Duration) {
 		if let Some(metrics) = AVAIL_METRICS.get() {
 			metrics
 				.header_extension
@@ -353,6 +353,8 @@ pub enum ObserveKind {
 	KateQueryAppData,
 	KateQueryRows,
 	HETotalExecutionTime,
+	HEGrid,
+	HECommitment,
 }
 
 pub struct MetricObserver {
@@ -393,6 +395,12 @@ impl Drop for MetricObserver {
 			},
 			ObserveKind::HETotalExecutionTime => {
 				HeaderExtensionBuilderMetrics::observe_total_execution_time(duration)
+			},
+			ObserveKind::HEGrid => {
+				HeaderExtensionBuilderMetrics::observe_evaluation_grid_build_time(duration)
+			},
+			ObserveKind::HECommitment => {
+				HeaderExtensionBuilderMetrics::observe_commitment_build_time(duration)
 			},
 		}
 	}

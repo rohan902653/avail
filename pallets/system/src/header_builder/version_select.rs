@@ -18,7 +18,7 @@ use kate::{
 
 use sp_core::H256;
 use sp_runtime::SaturatedConversion;
-use std::{sync::OnceLock, time::Instant, vec::Vec};
+use std::{sync::OnceLock, vec::Vec};
 
 static PMP: OnceLock<M1NoPrecomp> = OnceLock::new();
 
