@@ -46,6 +46,8 @@ pub fn build_grid(
 	block_length: BlockLength,
 	seed: Seed,
 ) -> Result<EvaluationGrid, String> {
+	let _metric_observer = MetricObserver::new(ObserveKind::HEGrid);
+
 	let grid = EvaluationGrid::from_extrinsics(
 		submitted,
 		MIN_WIDTH,
@@ -60,6 +62,8 @@ pub fn build_grid(
 
 #[cfg(feature = "std")]
 pub fn build_commitment(grid: &EvaluationGrid) -> Result<Vec<u8>, String> {
+	let _metric_observer = MetricObserver::new(ObserveKind::HECommitment);
+
 	// couscous has pp for degree upto 1024
 	let pmp = PMP.get_or_init(multiproof_params);
 
@@ -93,11 +97,7 @@ pub fn build_extension(
 	let _metric_observer = MetricObserver::new(ObserveKind::HETotalExecutionTime);
 
 	// Build the grid
-	let timer = Instant::now();
 	let maybe_grid = build_grid(submitted, block_length, seed);
-
-	// Evaluation Grid Build Time Metrics
-	Metrics::observe_evaluation_grid_build_time(timer.elapsed());
 
 	// We get the grid or return an empty header in case of an error
 	let grid = match maybe_grid {
@@ -105,17 +105,11 @@ pub fn build_extension(
 		Err(message) => {
 			log::error!("NODE_CRITICAL_ERROR_001 - A critical error has occured: {message:?}.");
 			log::error!("NODE_CRITICAL_ERROR_001 - If you see this, please warn Avail team and raise an issue.");
-			Metrics::observe_total_execution_time(build_extension_start.elapsed());
 			return get_empty_header(data_root, version);
 		},
 	};
 
-	// Build the commitment
-	let timer = Instant::now();
 	let maybe_commitment = build_commitment(&grid);
-
-	// Commitment Build Time Metrics
-	Metrics::observe_commitment_build_time(timer.elapsed());
 
 	// We get the commitment or return an empty header in case of an error
 	let commitment = match maybe_commitment {
@@ -123,7 +117,6 @@ pub fn build_extension(
 		Err(message) => {
 			log::error!("NODE_CRITICAL_ERROR_002 - A critical error has occured: {message:?}.");
 			log::error!("NODE_CRITICAL_ERROR_002 - If you see this, please warn Avail team and raise an issue.");
-			Metrics::observe_total_execution_time(build_extension_start.elapsed());
 			return get_empty_header(data_root, version);
 		},
 	};
