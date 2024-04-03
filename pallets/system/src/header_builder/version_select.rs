@@ -1,7 +1,9 @@
 use super::MIN_WIDTH;
 use crate::limits::BlockLength;
 
-use avail_base::metrics::avail::HeaderExtensionBuilderMetrics as Metrics;
+use avail_base::metrics::avail::{
+	HeaderExtensionBuilderMetrics as Metrics, MetricObserver, ObserveKind,
+};
 use avail_core::{
 	app_extrinsic::AppExtrinsic,
 	header::{extension as he, HeaderExtension},
@@ -88,7 +90,7 @@ pub fn build_extension(
 	seed: Seed,
 	version: HeaderVersion,
 ) -> HeaderExtension {
-	let build_extension_start = Instant::now();
+	let _metric_observer = MetricObserver::new(ObserveKind::HETotalExecutionTime);
 
 	// Build the grid
 	let timer = Instant::now();
@@ -136,7 +138,7 @@ pub fn build_extension(
 
 	let app_lookup = grid.lookup().clone();
 
-	let extension = match version {
+	match version {
 		HeaderVersion::V3 => {
 			let commitment = kc::v3::KateCommitment::new(rows, cols, data_root, commitment);
 			he::v3::HeaderExtension {
@@ -145,10 +147,5 @@ pub fn build_extension(
 			}
 			.into()
 		},
-	};
-
-	// Total Execution Time Metrics
-	Metrics::observe_total_execution_time(build_extension_start.elapsed());
-
-	extension
+	}
 }

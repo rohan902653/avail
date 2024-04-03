@@ -1,4 +1,4 @@
-use avail_base::metrics::avail::KateRpcMetrics;
+use avail_base::metrics::avail::{MetricObserver, ObserveKind};
 use avail_core::{data_proof::ProofResponse, traits::ExtendedHeader, AppId, OpaqueExtrinsic};
 use da_control::kate::{GDataProof, GRow};
 use da_runtime::apis::{DataAvailApi, KateApi as RTKateApi};
@@ -18,7 +18,7 @@ use sp_runtime::{
 	generic::SignedBlock,
 	traits::{Block as BlockT, ConstU32, Header},
 };
-use std::{marker::PhantomData, marker::Sync, sync::Arc, time::Instant};
+use std::{marker::PhantomData, marker::Sync, sync::Arc};
 
 pub type HashOf<Block> = <Block as BlockT>::Hash;
 pub type MaxRows = ConstU32<64>;
@@ -186,14 +186,13 @@ where
 	Client::Api: DataAvailApi<Block> + RTKateApi<Block>,
 {
 	async fn query_rows(&self, rows: Rows, at: Option<HashOf<Block>>) -> RpcResult<Vec<GRow>> {
-		let (api, at, number, block_len, extrinsics) = self.scope(at)?;
+		let _metric_observer = MetricObserver::new(ObserveKind::KateQueryRows);
 
-		let execution_start = Instant::now();
+		let (api, at, number, block_len, extrinsics) = self.scope(at)?;
 		let grid_rows = api
 			.rows(at, number, extrinsics, block_len, rows.into())
 			.map_err(|kate_err| internal_err!("Failed Kate rows: {kate_err:?}"))?
 			.map_err(|api_err| internal_err!("Failed API: {api_err:?}"))?;
-		KateRpcMetrics::observe_query_rows_execution_time(execution_start.elapsed());
 
 		Ok(grid_rows)
 	}
@@ -203,14 +202,13 @@ where
 		app_id: AppId,
 		at: Option<HashOf<Block>>,
 	) -> RpcResult<Vec<Option<GRow>>> {
-		let (api, at, number, block_len, extrinsics) = self.scope(at)?;
+		let _metric_observer = MetricObserver::new(ObserveKind::KateQueryAppData);
 
-		let execution_start = Instant::now();
+		let (api, at, number, block_len, extrinsics) = self.scope(at)?;
 		let app_data = api
 			.app_data(at, number, extrinsics, block_len, app_id)
 			.map_err(|kate_err| internal_err!("Failed Kate app data: {kate_err:?}"))?
 			.map_err(|api_err| internal_err!("Failed API: {api_err:?}"))?;
-		KateRpcMetrics::observe_query_app_data_execution_time(execution_start.elapsed());
 
 		Ok(app_data)
 	}
@@ -230,9 +228,9 @@ where
 			);
 		}
 
-		let (api, at, number, block_len, extrinsics) = self.scope(at)?;
+		let _metric_observer = MetricObserver::new(ObserveKind::KateQueryProof);
 
-		let execution_start = Instant::now();
+		let (api, at, number, block_len, extrinsics) = self.scope(at)?;
 		let cells = cells
 			.into_iter()
 			.map(|cell| (cell.row.0, cell.col.0))
@@ -242,23 +240,17 @@ where
 			.map_err(|kate_err| internal_err!("KateApi::proof failed: {kate_err:?}"))?
 			.map_err(|api_err| internal_err!("Failed API: {api_err:?}"))?;
 
-		// Execution Time Metric
-		KateRpcMetrics::observe_query_proof_execution_time(execution_start.elapsed());
-
 		Ok(proof)
 	}
 
 	async fn query_block_length(&self, at: Option<HashOf<Block>>) -> RpcResult<BlockLength> {
-		let execution_start = Instant::now();
+		let _metric_observer = MetricObserver::new(ObserveKind::KateQueryBlockLength);
 
 		let at = self.at_or_best(at);
 		let api = self.client.runtime_api();
 		let block_length = api
 			.block_length(at)
 			.map_err(|e| internal_err!("Length of best block({at:?}): {e:?}"))?;
-
-		// Execution Time Metric
-		KateRpcMetrics::observe_query_block_length_execution_time(execution_start.elapsed());
 
 		Ok(block_length)
 	}
@@ -268,17 +260,16 @@ where
 		tx_idx: u32,
 		at: Option<HashOf<Block>>,
 	) -> RpcResult<ProofResponse> {
+		let _metric_observer = MetricObserver::new(ObserveKind::KateQueryDataProof);
+
 		// Calculate proof for block and tx index
 		let (api, at, number, _, extrinsics) = self.scope(at)?;
-
-		let execution_start = Instant::now();
 		let proof = api
 			.data_proof(at, number, extrinsics, tx_idx)
 			.map_err(|e| internal_err!("KateApi::data_proof failed: {e:?}"))?
 			.ok_or_else(|| {
 				internal_err!("Cannot to fetch tx data at tx index {tx_idx:?} at block {at:?}")
 			})?;
-		KateRpcMetrics::observe_query_data_proof_execution_time(execution_start.elapsed());
 
 		Ok(proof)
 	}
